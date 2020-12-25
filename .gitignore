@@ -1,0 +1,15 @@
+build.num
+bios.inc
+build.inc
+kernel.inc
+date.inc
+newexpr.asm
+temp.asm
+rcbasic2k.doc
+rcbasicl2.txt
+rcbasic_.txt
+x.x
+*.prg
+*.hex
+*.old
+*.lst
