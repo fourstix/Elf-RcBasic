@@ -415,8 +415,16 @@ restart:   ldi     0ch                 ; form feed
            phi     r7
            ldi     low group_7
            plo     r7
+#ifdef ELFOS
+           mov     rd,0442h            ; point to high memory pointer
+           lda     rd                  ; get it
+           phi     rf
+           lda     rd
+           plo     rf
+#else
            sep     scall               ; call bios to get end of memory
            dw      f_freemem
+#endif
            ldi     0                   ; zero terminator in heap memory
            str     rf
            ldi     high memory         ; point to high memory storage
@@ -445,8 +453,16 @@ start:     sep     scall               ; display welcome message
            db      'RC/Basic L2',10,13
 #endif
            db      '(c) Copyright 2006 by Michael H. Riley',10,13,10,13,0
+#ifdef ELFOS
+           mov     rd,0442h            ; point to high memory pointer
+           lda     rd                  ; and retrieve it
+           phi     rf
+           lda     rd
+           plo     rf
+#else
 picostrt:  sep     scall               ; call bios to get end of memory
            dw      f_freemem
+#endif
            ldi     high memory         ; point to high memory storage
            phi     rd
            ldi     low memory
