@@ -398,9 +398,17 @@ cmd_table: dw      ex_print            ; 0
             
 restart:   ldi     0ch                 ; form feed
            sep     scall               ; clear the screen
+#ifdef ELFOS
+           dw      o_type
+#else
            dw      f_type
+#endif
            sep     scall               ; display welcome message
+#ifdef ELFOS
+           dw      o_inmsg
+#else
            dw      f_inmsg
+#endif
 #if LEVEL==1
            db      'RC/Basic L1',10,13
 #endif
@@ -5258,13 +5266,13 @@ size_dn:   irx                         ; recover RF
            inc     rc                  ; add in program terminator
            sep     sret                ; and return to caller
 
-#ifdef ELFOS
-o_inmsg:   lda     r6                  ; load byte from message
-           lbz     return              ; return if done
-           sep     scall               ; display byte
-           dw      TYPE
-           lbr     o_inmsg
-#endif
+;#ifdef ELFOS
+;o_inmsg:   lda     r6                  ; load byte from message
+;           lbz     return              ; return if done
+;           sep     scall               ; display byte
+;           dw      TYPE
+;           lbr     o_inmsg
+;#endif
 
 #ifndef ELFOS
 begin2:    ldi     high stack          ; restart address here
