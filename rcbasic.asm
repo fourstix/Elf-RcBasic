@@ -1545,6 +1545,151 @@ ex_and:    sep     r7                  ; get top of expression stack
            db      ex_push.0
            sep     sret                ; and return
           
+
+; ************************************
+; *** make both arguments positive ***
+; *** Arg1 RF                      ***
+; *** Arg2 RD                      ***
+; *** Returns D=0 - signs same     ***
+; ***         D=1 - signs difer    ***
+; ************************************
+mdnorm:    ghi     rf                  ; get high byte if divisor
+           str     r2                  ; store for sign check
+           ghi     rd                  ; get high byte of dividend
+           xor                         ; compare
+           shl                         ; shift into df
+           ldi     0                   ; convert to 0 or 1
+           shlc                        ; shift into D
+           plo     re                  ; store into sign flag
+           ghi     rf                  ; need to see if RF is negative
+           shl                         ; shift high byte to df
+           lbnf    mdnorm2             ; jump if not
+           ghi     rf                  ; 2s compliment on RF
+           xri     0ffh
+           phi     rf
+           glo     rf
+           xri     0ffh
+           plo     rf
+           inc     rf
+mdnorm2:   ghi     rd                  ; now check rD for negative
+           shl                         ; shift sign bit into df
+           lbnf    mdnorm3             ; jump if not
+           ghi     rd                  ; 2 compliment on RD
+           xri     0ffh
+           phi     rd
+           glo     rd
+           xri     0ffh
+           plo     rd
+           inc     rd
+mdnorm3:   glo     re                  ; recover sign flag
+           sep     sret                ; and return to caller
+
+; *** RC = RB/R7
+; *** RB = remainder
+; *** uses R8 and R9
+
+; *** RB = RF/RD
+; ****RF = remainder
+; *** uses R8 and R9
+div16:     sep     scall               ; normalize numbers
+           dw      mdnorm
+           plo     re                  ; save sign comparison
+           ldi     0                   ; clear answer
+           phi     rb
+           plo     rb
+           phi     r8                  ; set additive
+           plo     r8
+           inc     r8
+           glo     rd                  ; check for divide by 0
+           lbnz    d16lp1
+           ghi     rd
+           lbnz    d16lp1
+           ldi     0ffh                ; return 0ffffh as div/0 error
+           phi     rb
+           plo     rb
+           sep     sret                ; return to caller
+d16lp1:    ghi     rd                  ; get high byte from r7
+           ani     128                 ; check high bit
+           lbnz    divst               ; jump if set
+           glo     rd                  ; lo byte of divisor
+           shl                         ; multiply by 2
+           plo     rd                  ; and put back
+           ghi     rd                  ; get high byte of divisor
+           shlc                        ; continue multiply by 2
+           phi     rd                  ; and put back
+           glo     r8                  ; multiply additive by 2
+           shl
+           plo     r8
+           ghi     r8
+           shlc
+           phi     r8
+           lbr     d16lp1              ; loop until high bit set in divisor
+divst:     glo     rd                  ; get low of divisor
+           lbnz    divgo               ; jump if still nonzero
+           ghi     rd                  ; check hi byte too
+           lbnz    divgo
+           glo     re                  ; get sign flag
+           shr                         ; move to df
+           lbnf    divret              ; jump if signs were the same
+           ghi     rb                  ; perform 2s compliment on answer
+           xri     0ffh
+           phi     rb
+           glo     rb
+           xri     0ffh
+           plo     rb
+           inc     rb
+divret:    sep     sret                ; jump if done
+divgo:     ghi     rf                  ; copy dividend
+           phi     r9
+           glo     rf
+           plo     r9
+           glo     rd                  ; get lo of divisor
+           stxd                        ; place into memory
+           irx                         ; point to memory
+           glo     rf                  ; get low byte of dividend
+           sm                          ; subtract
+           plo     rf                  ; put back into r6
+           ghi     rd                  ; get hi of divisor
+           stxd                        ; place into memory
+           irx                         ; point to byte
+           ghi     rf                  ; get hi of dividend
+           smb                         ; subtract
+           phi     rf                  ; and put back
+           lbdf    divyes              ; branch if no borrow happened
+           ghi     r9                  ; recover copy
+           phi     rf                  ; put back into dividend
+           glo     r9
+           plo     rf
+           lbr     divno               ; jump to next iteration
+divyes:    glo     r8                  ; get lo of additive
+           stxd                        ; place in memory
+           irx                         ; point to byte
+           glo     rb                  ; get lo of answer
+           add                         ; and add
+           plo     rb                  ; put back
+           ghi     r8                  ; get hi of additive
+           stxd                        ; place into memory
+           irx                         ; point to byte
+           ghi     rb                  ; get hi byte of answer
+           adc                         ; and continue addition
+           phi     rb                  ; put back
+divno:     ghi     rd                  ; get hi of divisor
+           shr                         ; divide by 2
+           phi     rd                  ; put back
+           glo     rd                  ; get lo of divisor
+           shrc                        ; continue divide by 2
+           plo     rd
+           ghi     r8                  ; get hi of divisor
+           shr                         ; divide by 2
+           phi     r8                  ; put back
+           glo     r8                  ; get lo of divisor
+           shrc                        ; continue divide by 2
+           plo     r8
+           lbr     divst               ; next iteration
+
+
+
+
 ; *********************************
 ; *** Divide top 2 stack values ***
 ; *********************************
@@ -1563,7 +1708,7 @@ ex_div:    sep     r7                  ; get top of expression stack
            ghi     r8
            stxd
            sep     scall               ; call bios to divide
-           dw      f_div16
+           dw      div16
            glo     rb                  ; transfer answer
            plo     rf
            ghi     rb
