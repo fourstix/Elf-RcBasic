@@ -7,7 +7,7 @@
 ; *******************************************************************
 
 ; #define ELFOS
-; #define PICOROM
+;#define PICOROM
 #define LEVEL 2
 ; #define ELF2K
 
@@ -4458,6 +4458,7 @@ next_nv:   sep     r7                  ; get FOR stack into RB
            dec     rb
            ghi     rd
            sdb
+           shl                         ; shift sign into DF
            lbdf    next_ne             ; jump if not at end
            lbr     next_ok
 next_p:    glo     rd                  ; do end-RD
@@ -4465,7 +4466,8 @@ next_p:    glo     rd                  ; do end-RD
            dec     rb                  ; point to msb
            ghi     rd
            sdb
-           lbdf    next_ne             ; jump if not at end
+           shl                         ; shift sign into DF
+           lbnf    next_ne             ; jump if not at end
 next_ok:   irx                         ; lsb of end
            irx                         ; msb or ra
            irx                         ; lsb of ra
