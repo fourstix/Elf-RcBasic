@@ -17,23 +17,77 @@
 ; RA - Current token
 ; RC - Current line pointer
 
+#ifdef MCHIP
+#define    INROM
+#define    BASE    4000h
+#define    BASE2   4100h
+#define    MSG     f_msg
+#define    TYPE    f_type
+#define    INPUT   f_input
+#define    INMSG   f_inmsg
+#define    DATA    08100h
+xopenw:    equ     07006h
+xopenr:    equ     07009h
+xread:     equ     0700ch
+xwrite:    equ     0700fh
+xclosew:   equ     07012h
+xcloser:   equ     07015h
+exitaddr:  equ     07003h
+#endif
+
 #ifdef PICOROM
+#define    INROM
+#define    BASE    0c000h
+#define    BASE2   0c100h
+#define    DATA    00100h
+#define    MSG     f_msg
+#define    TYPE    f_type
+#define    INPUT   f_input
+#define    INMSG   f_inmsg
 xopenw:    equ     08006h
 xopenr:    equ     08009h
 xread:     equ     0800ch
 xwrite:    equ     0800fh
 xclosew:   equ     08012h
 xcloser:   equ     08015h
+exitaddr:  equ     08003h
 #endif
 
 #ifdef ELF2K
+#define    INROM
 #include "config.inc"
+#define     BASE   BASIC
+#define     BASE2  (BASIC+0100h)
+#define     MSG    f_msg
+#define     TYPE   f_type
+#define     INPUT  f_input
+#define     INMSG  f_inmsg
+exitaddr:  equ     o_wrmboot
+#endif
+
+#ifdef ELFOS
+include    kernel.inc
+exitaddr:  equ     o_wrmboot
+#define     BASE   2000h
+#define     BASE2  2100h
+#define     MSG    o_msg
+#define     TYPE   o_type
+#define     INPUT  o_input
+#define     INMSG  o_inmsg
+#endif
+
+#ifndef BASE
+#define    INROM
+#define    BASE    0c000h
+#define    BASE2   0c100h
+#define    DATA    00100h
+#define    MSG     f_msg
+#define    TYPE    f_type
+#define    INPUT   f_input
+#define    INMSG   f_inmsg
 #endif
 
 include    bios.inc
-#ifdef ELFOS
-include    kernel.inc
-#endif
 
 TKN_USTR:  equ     0fch
 TKN_QSTR:  equ     0fdh
@@ -55,27 +109,6 @@ ERR_BADDIM: equ     11
 ERR_UNSUP:  equ     12
 
 CMD_START:  equ    26
-
-#ifdef ELFOS
-#define     BASE   2000h
-#define     BASE2  2100h
-#define     MSG    o_msg
-#define     TYPE   o_type
-#define     INPUT  o_input
-#define     INMSG  o_inmsg
-#else
-#ifdef ELF2K
-#define     BASE   BASIC
-#define     BASE2  (BASIC+0100h)
-#else
-#define     BASE   0c000h
-#define     BASE2  0c100h
-#endif
-#define     MSG    f_msg
-#define     TYPE   f_type
-#define     INPUT  f_input
-#define     INMSG  f_inmsg
-#endif
 
 
 #ifdef ELFOS
@@ -391,7 +424,7 @@ cmd_table: dw      ex_print            ; 0
            dw      ex_save             ; 22
            dw      ex_load             ; 23
 #endif
-#ifdef PICOROM
+#ifdef INROM
            dw      ex_save             ; 22
            dw      ex_load             ; 23
 #endif
@@ -3935,25 +3968,9 @@ yesdata:   lbr     exec_tst            ; start program execution
 ; ************************
 ; *** Exit from basic  ***
 ; ************************
-#ifdef PICOROM
-ex_bye:    lbr     8003h
-#endif
+ex_bye:    lbr     exitaddr
 
-#ifdef ELF2K
-#ifndef ELFOS
-ex_bye:    lbr     8003h               ; return to monitor
-#endif
-#endif
-
-#ifndef ELF2K
-#ifndef ELFOS
-#ifndef PICOROM
-ex_bye:    lbr     0f900h              ; return to monitor
-#endif
-#endif
-#endif
-
-#ifdef PICOROM
+#ifdef INROM
 ; **********************************************************
 ; ***                     Pico/Elf ROM                   ***
 ; **********************************************************
@@ -4018,10 +4035,6 @@ ex_load:   sep     scall               ; attempt to open XMODEM channel
 ; ******************************************************************************
 ; ***                         Start of Disk statements                       ***
 ; ******************************************************************************
-; ************************
-; *** REturn to Elf/OS ***
-; ************************
-ex_bye:    lbr     o_wrmboot           ; return to OS
 
 setup_fl:  sep     r7                  ; point to buffer to hold filename
            db      set_buf.0
@@ -5538,7 +5551,7 @@ functable: db      ('+'+80h)           ; 0
            db      'MID$',('('+80h)    ; 36
 #endif
            db      'BY',('E'+80h)      ; 43
-#ifdef PICOROM
+#ifdef INROM
            db      'SAV',('E'+80h)     ; 44
            db      'LOA',('D'+80h)     ; 45
 #endif
@@ -5560,7 +5573,7 @@ crlf:      db      10,13,0
 endrom:    equ     $
 
 #ifndef ELFOS
-           org     100h
+           org     DATA
 #endif
 
 #if LEVEL==1
