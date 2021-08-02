@@ -12,6 +12,14 @@ elfos: $(PROJECT).asm bios.inc
 	rcasm -l -v -x -d1802 -DELFOS temp 2>&1 | tee rcbasic.lst
 	cat temp.prg | sed -f adjust.sed > $(PROJECT).prg
 
+erom: $(PROJECT).asm bios.inc
+	echo Building for Elf/OS ROM
+	../dateextended.pl > date.inc
+	../build.pl > build.inc
+	cpp -DELFOS -DEROM $(PROJECT).asm -o - | sed -e 's/^#.*//' > temp.asm
+	rcasm -l -v -x -d1802 temp 2>&1 | tee rcbasic.lst
+	cat temp.prg | sed -f adjust.sed > $(PROJECT).prg
+
 pico: $(PROJECT).asm bios.inc
 	cpp -DMCHIP $(PROJECT).asm -o - | sed -e 's/^#.*//' > temp.asm
 	rcasm -l -v -x -d1802 -DPICOROM temp 2>&1 | tee rcbasic.lst

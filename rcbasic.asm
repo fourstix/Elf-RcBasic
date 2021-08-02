@@ -68,8 +68,14 @@ exitaddr:  equ     o_wrmboot
 #ifdef ELFOS
 include    kernel.inc
 exitaddr:  equ     o_wrmboot
+#ifdef EROM
+#define     BASE   09000h
+#define     BASE2  09100h
+#define     DATA   2000h
+#else
 #define     BASE   2000h
 #define     BASE2  2100h
+#endif
 #define     MSG    o_msg
 #define     TYPE   o_type
 #define     INPUT  o_input
@@ -5573,6 +5579,10 @@ crlf:      db      10,13,0
 endrom:    equ     $
 
 #ifndef ELFOS
+           org     DATA
+#endif
+
+#ifdef EROM
            org     DATA
 #endif
 
