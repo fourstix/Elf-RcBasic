@@ -1,40 +1,34 @@
 PROJECT = rcbasic
 
-$(PROJECT).prg: $(PROJECT).asm bios.inc
-	cpp $(PROJECT).asm -o - | sed -e 's/^#.*//' > temp.asm
-	rcasm -l -v -x -d1802 temp 2>&1 | tee rcbasic.lst
-	cat temp.prg | sed -f adjust.sed > $(PROJECT).prg
+$(PROJECT).prg:
+        echo Must specify target: elfos erom pico mchip
 
-elfos: $(PROJECT).asm bios.inc
+elfos: $(PROJECT).asm
+	echo Building for Elf/OS
 	../dateextended.pl > date.inc
 	../build.pl > build.inc
-	cpp -DELFOS $(PROJECT).asm -o - | sed -e 's/^#.*//' > temp.asm
-	rcasm -l -v -x -d1802 -DELFOS temp 2>&1 | tee rcbasic.lst
-	cat temp.prg | sed -f adjust.sed > $(PROJECT).prg
+	asm02 -l -L -DELFOS $(PROJECT).asm
+	mv $(PROJECT).prg x.prg
+	cat x.prg | sed -f adjust.sed > $(PROJECT).prg
+	rm x.prg
 
-erom: $(PROJECT).asm bios.inc
+erom: $(PROJECT).asm
 	echo Building for Elf/OS ROM
 	../dateextended.pl > date.inc
 	../build.pl > build.inc
-	cpp -DELFOS -DEROM $(PROJECT).asm -o - | sed -e 's/^#.*//' > temp.asm
-	rcasm -l -v -x -d1802 temp 2>&1 | tee rcbasic.lst
-	cat temp.prg | sed -f adjust.sed > $(PROJECT).prg
+	asm02 -l -L -DELFOS -DEROM  $(PROJECT).asm
+	mv $(PROJECT).prg x.prg
+	cat x.prg | sed -f adjust.sed > $(PROJECT).prg
+	rm x.prg
 
-pico: $(PROJECT).asm bios.inc
-	cpp -DMCHIP $(PROJECT).asm -o - | sed -e 's/^#.*//' > temp.asm
-	rcasm -l -v -x -d1802 -DPICOROM temp 2>&1 | tee rcbasic.lst
-	mv temp.prg $(PROJECT).prg
+pico: $(PROJECT).asm
+	echo Building for Pico/Elf ROM
+	asm02 -l -L -DPICOROM  $(PROJECT).asm
 
-mchip: $(PROJECT).asm bios.inc
-	cpp -DMCHIP $(PROJECT).asm -o - | sed -e 's/^#.*//' > temp.asm
-	rcasm -l -v -x -d1802 -DMCHIP temp 2>&1 | tee rcbasic.lst
-	mv temp.prg $(PROJECT).prg
-
-test: $(PROJECT).asm bios.inc
-	../date.pl > date.inc
-	rcasm -l -v -x -d1802 $(PROJECT)
-
+mchip: $(PROJECT).asm
+	echo Building for MemberChip ROM
+	asm02 -l -L -DMCHIP  $(PROJECT).asm
 
 clean:
 	-rm $(PROJECT).prg
-
+	-rm $(PROJECT).lst

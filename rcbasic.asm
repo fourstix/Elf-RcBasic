@@ -93,7 +93,7 @@ exitaddr:  equ     o_wrmboot
 #define    INMSG   f_inmsg
 #endif
 
-include    bios.inc
+include    ../bios.inc
 
 TKN_USTR:  equ     0fch
 TKN_QSTR:  equ     0fdh
