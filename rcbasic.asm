@@ -6,6 +6,8 @@
 ; *** without express written permission from the author.         ***
 ; *******************************************************************
 
+#include ../opcodes.inc	
+
 ; #define ELFOS
 ;#define PICOROM
 #define LEVEL 2
@@ -66,7 +68,7 @@ exitaddr:  equ     o_wrmboot
 #endif
 
 #ifdef ELFOS
-include    kernel.inc
+#include    ../kernel.inc
 exitaddr:  equ     o_wrmboot
 #ifdef EROM
 #define     BASE   09000h
@@ -93,7 +95,7 @@ exitaddr:  equ     o_wrmboot
 #define    INMSG   f_inmsg
 #endif
 
-include    ../bios.inc
+#include    ../bios.inc
 
 TKN_USTR:  equ     0fch
 TKN_QSTR:  equ     0fdh
@@ -117,7 +119,7 @@ ERR_UNSUP:  equ     12
 CMD_START:  equ    26
 
 
-#ifdef ELFOS
+#ifdef xxxELFOS
            org     8000h
            lbr     0ff00h
 #if LEVEL==1
@@ -141,8 +143,7 @@ CMD_START:  equ    26
 
 #ifdef ELFOS
            br      start1              ; jump to start
-include    date.inc
-include    build.inc
+	   EEVER
            db      0
 start1:    lbr     start
 #else
@@ -385,6 +386,14 @@ func_call: ghi     r6                  ; save last value to stack
 ; ***                    End of group 7 subroutines                       ***
 ; ***************************************************************************
 
+	;; This is the command table
+	;; tokens vector here and anything that isn't
+	;; really a command (like MID$) should define syn_err here
+	;; We need to know about the string functions so the count
+	;; is computed here
+	;; in functable (below) everything before PRINT is a real function
+	;; Everything from PRINT on down is a command
+
            org     BASE2
 cmd_table: dw      ex_print            ; 0
            dw      ex_print            ; 1
@@ -419,11 +428,14 @@ cmd_table: dw      ex_print            ; 0
            dw      syn_err             ; 29 (LEN)
            dw      syn_err             ; 30 (ASC)
            dw      syn_err             ; 31 (VAL)
+startstrfunc:	
            dw      syn_err             ; 32 (STR)
            dw      syn_err             ; 33 (CHR)
            dw      syn_err             ; 34 (LEFT)
            dw      syn_err             ; 35 (RIGHT)
-           dw      syn_err             ; 35 (MID)
+           dw      syn_err             ; 36 (MID)
+	   dw      syn_err             ; 37 (HEX)
+endstrfunc:	
 #endif
            dw      ex_bye              ; 21
 #ifdef ELFOS
@@ -434,6 +446,9 @@ cmd_table: dw      ex_print            ; 0
            dw      ex_save             ; 22
            dw      ex_load             ; 23
 #endif
+	
+strfuncct:	equ (endstrfunc-startstrfunc)/2
+
             
 restart:   ldi     0ch                 ; form feed
            sep     scall               ; clear the screen
@@ -815,7 +830,7 @@ fn_lfsr:   ldi     high lfsr           ; point to lfsr
            shr                         ; shift bit 1 into first position
            str     r2                  ; xor with previous value
            glo     re
-           xor
+           xor  
            plo     re                  ; keep copy
            ldn     r2                  ; get value
            shr                         ; shift bit 2 into first position
@@ -1312,6 +1327,8 @@ tokenterm: ldi     0ffh                ; quoted string termination
 tokennum:  lbz     numisdec            ; jump if decimal number
            sep     scall               ; convert hex number
            dw      f_hexin
+	;; need to skip terminating H here
+	   inc     rf
            lbr     numcont             ; continue processing number
 numisdec:  sep     scall               ; convert number
            dw      f_atoi
@@ -2647,8 +2664,20 @@ right_f:   ghi     rb                 ; get request count
 
 
 ; ********************
-; *** Process STR$ ***
+; *** Process STR$  and HEX$ ***
 ; ********************
+fn_hex:	   sep     scall
+	   dw      expr
+           lbdf    err_ret
+	sep     r7
+	db ex_pop.0
+	sep r7
+	db rf_rd.0
+	sep r7
+	db set_buf.0
+	sep scall
+	dw f_hexout4
+	br fn_strhex
 fn_str:    sep     scall              ; get argument
            dw      expr
            lbdf    err_ret            ; jump if error resulted
@@ -2660,6 +2689,7 @@ fn_str:    sep     scall              ; get argument
            db      set_buf.0
            sep     scall              ; convert number to ascii
            dw      f_intout
+fn_strhex:	
            ldi     0ffh               ; terminate it
            str     rf
            inc     rf
@@ -2685,13 +2715,39 @@ fn_val:    sep     scall              ; get argument
            db      ex_pop.0
            sep     scall              ; deallocate temporary storage
            dw      dealloc
-           sep     scall              ; convert to integer
+	;;  the problem here is we have a terminator of FF and
+	;;  BIOS thinks the terminator is 0
+	   ldi     high ibuffer
+	   phi     rd  		; we will use RD and ibuffer for a second
+	   ldi     low ibuffer
+	   plo     rd
+fn_vallp:  ldn     rf
+	   xri     0ffh
+	   bz     fn_vall0
+           lda     rf
+ 	   str     rd
+	   inc     rd
+	   br      fn_vallp	
+fn_vall0:  ldi	   0
+	   str     rd
+	   ldi     high ibuffer	; 
+	   phi     rf
+	   ldi     low ibuffer
+	   plo     rf
+	   sep     scall
+	   dw      f_idnum
+	   lbdf    valdec
+	   bz      valdec
+	   sep	   scall
+	   dw      f_hexin
+           br      valhex
+valdec:	   sep     scall              ; convert to integer
            dw      f_atoi
-           ghi     rd                 ; put back into rf
+valhex:	   ghi     rd                 ; put back into rf
            phi     rf
            glo     rd
            plo     rf
-           lbr     len_dn             ; finish
+valdn:	   lbr     len_dn             ; finish
 
 new_mexpr: ldi     high expstack       ; setup expression stack
            phi     r9
@@ -2727,7 +2783,7 @@ mexpr_nv:  ldn     ra                  ; recover character
            lbnf    mexpr_n             ; jump if numeric function
            smi     0a0h
            lbnf    mexpr_n             ; jump if numeric function
-           smi     5                   ; check high range of string functions
+           smi     strfuncct                   ; check high range of string functions
            lbnf    mexpr_s
            lbr     mexpr_n
 mexpr_s:   sep     scall               ; call string evaluator
@@ -2748,7 +2804,7 @@ mexpr_r:   ldi     2                   ; signal string result
 ; *****************************************************************
 strcmp:  lda     rd          ; get next byte in string
          xri     0ffh        ; check for end
-         bz      strcmpe     ; found end of first string
+         lbz      strcmpe     ; found end of first string
          xri     0ffh        ; restore character
          str     r2          ; store into memory
          lda     rf          ; get byte from first string
@@ -2761,7 +2817,7 @@ strcmp1: ldi     255         ; return -1, first string is smaller
          sep     sret        ; return to calelr
 strcmpe: lda     rf          ; get byte from second string
          xri     0ffh        ; check for end of 2nd string
-         bz      strcmpm     ; jump if also zero
+         lbz      strcmpm     ; jump if also zero
          ldi     1           ; first string is smaller (returns -1)
          sep     sret        ; return to caller
 strcmpm: ldi     0           ; strings are a match
@@ -2973,7 +3029,8 @@ sexpr_l1a: lda     ra                  ; get token again
            lbz     fn_right            ; jump if so
            smi     1                   ; check for mid$
            lbz     fn_mid              ; jump if so
-
+           smi	   1		       ; check for hex$
+	   lbz     fn_hex
            dec     ra                  ; move back
            ldn     ra                  ; see if possible variable
            sep     scall
@@ -5555,6 +5612,8 @@ functable: db      ('+'+80h)           ; 0
            db      'LEFT$',('('+80h)   ; 34
            db      'RIGHT$',('('+80h)  ; 35
            db      'MID$',('('+80h)    ; 36
+   	   db	    'HEX$',('('+80h) ; ; 37  
+	
 #endif
            db      'BY',('E'+80h)      ; 43
 #ifdef INROM
@@ -5615,4 +5674,4 @@ fildes:    ds      20
 dta:       ds      512
 #endif
 basic:     ds      1
-
+	   end    BASE

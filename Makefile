@@ -5,12 +5,13 @@ $(PROJECT).prg:
 
 elfos: $(PROJECT).asm
 	echo Building for Elf/OS
-	../dateextended.pl > date.inc
-	../build.pl > build.inc
+#	../dateextended.pl > date.inc
+#	../build.pl > build.inc
 	asm02 -l -L -DELFOS $(PROJECT).asm
-	mv $(PROJECT).prg x.prg
-	cat x.prg | sed -f adjust.sed > $(PROJECT).prg
-	rm x.prg
+#	mv $(PROJECT).prg x.prg
+#	cat x.prg | sed -f adjust.sed > $(PROJECT).prg
+#	rm x.prg
+	link02 -e rcbasic.prg
 
 erom: $(PROJECT).asm
 	echo Building for Elf/OS ROM
