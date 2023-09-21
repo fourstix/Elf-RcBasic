@@ -57,14 +57,21 @@ exitaddr:  equ     08003h
 
 #ifdef ELF2K
 #define    INROM
-#include "config.inc"
+#include "config.inc"    	; From ELF2K Rom build
+#define     DATA   0100h
 #define     BASE   BASIC
 #define     BASE2  (BASIC+0100h)
 #define     MSG    f_msg
 #define     TYPE   f_type
 #define     INPUT  f_input
 #define     INMSG  f_inmsg
-exitaddr:  equ     o_wrmboot
+xopenw:    equ     XMODEM
+xopenr:    equ     XMODEM+3
+xread:     equ     XMODEM+6
+xwrite:    equ     XMODEM+9
+xclosew:   equ     XMODEM+0ch
+xcloser:   equ     XMODEM+0fh	
+exitaddr:  equ     WARMB
 #endif
 
 #ifdef ELFOS
@@ -387,7 +394,7 @@ func_call: ghi     r6                  ; save last value to stack
 ; ***************************************************************************
 
 	;; This is the command table
-	;; tokens vector here and anything that isn't
+	;; tokens vector here and anything that is not
 	;; really a command (like MID$) should define syn_err here
 	;; We need to know about the string functions so the count
 	;; is computed here
