@@ -8,6 +8,16 @@ the L1 interpreter and will run programs written for L1.  Rc/Basic exists also
 in two form factors, ROM and Elf/OS.  All versions of Rc/Basic as well as the
 source code can be obtained from www.elf-emulation.com.
 
+## Major Changes from the original
+
+1. The original code had a provision for working with hex numbers of the form 0ffh. Numbers had to start with a digit 0-9 and end with an H or h. However, this was broken and is now fixed.
+2. HEX$() added to convert a number into a 4-character hex number HEX$(0) => 0000. 
+3. Changed AND/OR to be lowest precedence so things like IF A=1 AND B=2 THEN work correctly (revert with #define ANDOR_LOW_PREC)
+4. Allowed AND/OR to mix numeric or multiple string conditionals (e.g., IF YN$="Y" OR YN$="y" THEN ...) 
+5. Fixed Unary - and + (e.g., PRINT -1 + 3 gives 2 instead of -4)
+6. THEN is no longer optional (revert with #define IF_OPT). If IF_OPT is zero then you can the form: "IF A=0 THEN 20" instead of "IF A=0 THEN GOTO 20"
+
+
 Introduction:
 -------------
   BASIC is an acronym for Beginners All-purpose Symbolic Instruction Code.

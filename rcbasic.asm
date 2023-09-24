@@ -13,6 +13,12 @@
 #define LEVEL 2
 ; #define ELF2K
 
+; Define as 0 for default order of operations
+; 1 means that AND/OR is lower than = <> etc.
+#define ANDOR_LOW_PREC 1   
+; Set to 1 if you want the original behavior of IF blah blah GOTO being OK
+; Note that this turns OFF IF blah blah THEN 100 
+#define IF_OPT 0     
 ; R7 - Group 7 subroutines
 ; R8 - GOSUB stack
 ; R9 - Expression stack
@@ -2016,20 +2022,120 @@ new_expr:  ldi     high expstack       ; setup expression stack
            phi     r9
            ldi     low expstack
            plo     r9
-expr:      ldn     ra                  ; get first token
+expr:      
+#if 0
+            ldn     ra                  ; get first token
            smi     081h                ; see if negative sign
            lbnz    expr_pos            ; jump if not
            inc     ra                  ; move past minus sign
            sep     scall               ; call level 2
-           dw      level_1
+           dw      level_4
            lbdf    err_ret             ; jump on syntax error
            sep     scall               ; then call negate
            dw      ex_neg
-           lbr     expr_1              ; continue
+           lbr     level_1c           ; continue
 expr_pos:  ldn     ra                  ; check for plus sign
            smi     080h
            lbnz    expr_0              ; jump if not
            inc     ra                  ; ignore it
+#endif            
+#if ANDOR_LOW_PREC     
+; ***********************************
+; *** Level 1, find AND, OR, &, | ***
+; ***********************************
+expr_0:    sep     scall               ; call level 2 to get value
+           dw      level_1
+           lbdf    err_ret             ; jump on syntax error
+level_1c:  ldn     ra                  ; get next byte
+           smi     08eh                ; see if AND
+           lbnz    level_1a            ; jump if not
+level_and: inc     ra                  ; move past plus
+           sep     scall               ; call level 2 to get value
+           ;dw      level_1
+           dw       mexpr
+           lbdf    err_ret             ; jump on syntax error
+           sep     scall               ; and top 2 stack values
+           dw      ex_and
+           lbr     level_1c            ; keep looking
+level_1a:  smi     1                   ; check for &
+           lbz     level_and           ; compute and
+           smi     1                   ; check for OR
+           lbnz    level_1b            ; jump if not
+level_or:  inc     ra                  ; move past minus sign
+           sep     scall               ; call level 2 to get value
+          ; dw      level_1
+           dw       mexpr
+           lbdf    err_ret             ; jump on syntax error
+           sep     scall               ; or top 2 stack values
+           dw      ex_or
+           lbr     level_1c            ; keep looking
+level_1b:  smi     1                   ; check for |
+           lbz     level_or            ; jump if so
+level_1n:  adi     0                   ; signal no error in level
+           sep     sret                ; return from level 2
+
+level_1:    sep     scall               ; call level 2 to get value
+           dw      level_2
+           lbdf    err_ret             ; jump on syntax error
+expr_1:    ldn     ra                  ; get token
+           smi     086h                ; check for =
+           lbnz    expr_1a             ; jump if not
+           inc     ra                  ; move past =
+           sep     scall               ; call level 1 to get value
+           dw      level_2
+           lbdf    err_ret             ; jump on syntax error
+           sep     scall               ; now check for equality
+           dw      ex_eq
+           lbr     expr_1              ; look for more
+expr_1a:   smi     1                   ; check for <=
+           lbnz    expr_1b             ; jump if not
+           inc     ra                  ; move past symbol
+           sep     scall               ; call level 1 to get value
+           dw      level_2
+           lbdf    err_ret             ; jump on syntax error
+           sep     scall               ; now check
+           dw      ex_lte
+           lbr     expr_1              ; look for more
+expr_1b:   smi     1                   ; check for >=
+           lbnz    expr_1c             ; jump if not
+           inc     ra                  ; move past symbol
+           sep     scall               ; call level 1 to get value
+           dw      level_2
+           lbdf    err_ret             ; jump on syntax error
+           sep     scall               ; now check
+           dw      ex_gte
+           lbr     expr_1              ; look for more
+expr_1c:   smi     1                   ; check for <>
+           lbnz    expr_1d             ; jump if not
+           inc     ra                  ; move past symbol
+           sep     scall               ; call level 1 to get value
+           dw      level_2
+           lbdf    err_ret             ; jump on syntax error
+           sep     scall               ; now check
+           dw      ex_neq
+           lbr     expr_1              ; look for more
+expr_1d:   smi     1                   ; check for <
+           lbnz    expr_1e             ; jump if not
+           inc     ra                  ; move past symbol
+           sep     scall               ; call level 1 to get value
+           dw      level_2
+           lbdf    err_ret             ; jump on syntax error
+           sep     scall               ; now check
+           dw      ex_lt
+           lbr     expr_1              ; look for more
+expr_1e:   smi     1                   ; check for >
+           lbnz    expr_1f             ; jump if not
+           inc     ra                  ; move past symbol
+           sep     scall               ; call level 1 to get value
+           dw      level_2
+           lbdf    err_ret             ; jump on syntax error
+           sep     scall               ; now check
+           dw      ex_gt
+           lbr     expr_1              ; look for more
+expr_1f:   adi     0                   ; signal no errors
+           ldi     2                   ; signal integer result
+           sep     sret                ; and return to caller           
+#else
 expr_0:    sep     scall               ; call level 2 to get value
            dw      level_1
            lbdf    err_ret             ; jump on syntax error
@@ -2123,7 +2229,7 @@ level_1b:  smi     1                   ; check for |
            lbz     level_or            ; jump if so
 level_1n:  adi     0                   ; signal no error in level
            sep     sret                ; return from level 2
-
+#endif
 ; **************************
 ; *** Level 2, find +, - ***
 ; **************************
@@ -2184,6 +2290,22 @@ level_3n:  adi     0                   ; signal no error
 ; *** Check for numbers, variables, functions ***
 ; ***********************************************
 level_4:   ldn     ra                  ; get token
+#if 1
+           smi     80h                  ; PLUS
+           bnz     l4negck
+           inc     ra
+           br      l4num
+l4negck:   smi     1
+           bnz     l4num
+           inc     ra
+           sep     scall
+           dw      level_4
+           lbdf    err_ret
+           sep     scall
+           dw      ex_neg 
+           br      push_it 
+l4num:     ldn     ra      
+#endif      
            smi     TKN_NUM             ; check for number
            lbnz    level_4a            ; jump if not
            inc     ra                  ; move past token
@@ -2793,6 +2915,7 @@ mexpr_nv:  ldn     ra                  ; recover character
            smi     strfuncct                   ; check high range of string functions
            lbnf    mexpr_s
            lbr     mexpr_n
+#if 0
 mexpr_s:   sep     scall               ; call string evaluator
            dw      sexpr
            ldi     3                   ; signal string result
@@ -2801,6 +2924,17 @@ mexpr_n:   sep     scall               ; call numeric evaluator
            dw      expr
 mexpr_r:   ldi     2                   ; signal string result
            sep     sret                ; and return
+#else
+mexpr_s:   sep     scall               ; call string evaluator
+           dw      sexpr
+           ldi     3                   ; signal string result
+           sep     sret                ; and return
+mexpr_n:   sep     scall               ; call numeric evaluator
+           dw      expr
+mexpr_r:   ldi     2                   ; signal numeric result (note sexpr can return here)
+           sep     sret                ; and return
+#endif 
+
 
 ; *****************************************************************
 ; **** Strcmp compares the strings pointing to by R(D) and R(F) ***
@@ -2816,7 +2950,7 @@ strcmp:  lda     rd          ; get next byte in string
          str     r2          ; store into memory
          lda     rf          ; get byte from first string
          sm                  ; subtract 2nd byte from it
-         bz      strcmp      ; so far a match, keep looking
+         lbz      strcmp      ; so far a match, keep looking
          bnf     strcmp1     ; jump if first string is smaller
          ldi     1           ; indicate first string is larger
          lskp                ; and return to caller
@@ -2909,7 +3043,7 @@ sexpr:     sep     scall               ; get argument
            sep     scall               ; call string comparison
            dw      docmp
            lbdf    err_ret             ; jump on error
-           lbnz    sfalse              ; jump if falst
+           lbnz    sfalse              ; jump if false
 strue:     ldi     0ffh                ; put -1 on stack
 s_stack:   sex     r9                  ; point to expression stack
            stxd
@@ -2919,8 +3053,19 @@ sfix:      ldi     high mexpr_r        ; change to numeric return
            phi     r6
            ldi     low mexpr_r
            plo     r6
+#if 0           
            adi     0                   ; signal success
            sep     sret                ; and return
+#else
+           ldn     ra
+           bz      sfix0
+           smi     09fh   ; then
+           bz      sfix0
+           lbr     level_1c
+sfix0:     adi     0
+           sep     sret 
+#endif           
+
 sfalse:    ldi     0                   ; need a zero on the stack
            lbr     s_stack             ; finish up
 sexpr_a:   smi     1                   ; check for <=
@@ -3037,7 +3182,7 @@ sexpr_l1a: lda     ra                  ; get token again
            smi     1                   ; check for mid$
            lbz     fn_mid              ; jump if so
            smi	   1		       ; check for hex$
-	   lbz     fn_hex
+	        lbz     fn_hex
            dec     ra                  ; move back
            ldn     ra                  ; see if possible variable
            sep     scall
@@ -3466,11 +3611,26 @@ ex_if:     sep     scall               ; evaluate expression
            ghi     rf
            or
            lbz     exec_dn             ; jump if IF failed test
-if_chk:    ldn     ra                  ; check for optional THEN
+#if IF_OPT
+if_chk:     ldn ra
+            smi 09fh 
+            lbnz execute
+            inc  ra
+            lbr  execute           
+#else
+if_chk:    lda     ra                  ; check for NOT OPTIONAL THEN
            smi     09fh
-           lbnz    execute             ; not there, so just continue
-           inc     ra                  ; move past it
-           lbr     execute             ; and continue
+           bz     if_exec             ; not there, so just continue
+           ; it would be nice to check for end of line but there is no clear end of line unless you parse numbers and tokens so
+           ; you don't hit a zero accidentally
+           br      if_chk             ; and continue
+if_exec:   ldn ra
+           smi  TKN_NUM
+           lbnz execute
+           ; implied GOTO
+           lbr ex_goto
+
+#endif
 
 ; *********************
 ; *** Process INPUT ***
