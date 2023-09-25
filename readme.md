@@ -184,9 +184,10 @@ precedence:
 1. Functions and variable references
 2. * /
 3. + -
-4. AND OR & |
-5. = <> < > <= >=
+4. = <> < > <= >=
+5. AND OR & |
 ```
+(Note: The original program had 4 and 5 switched and you can revert that behavior if you prefer -- see top of this file).
 Precedence can be altered by the use of parentheses.
 
 Expression Examples:
@@ -238,6 +239,12 @@ RUN
     ABCXYZ
 
 ```
+Unlike early versions of this program, you can mix and match string relation operators
+with integer ones in IF statements. For example:
+```
+10 IF A$="N" OR P=20 THEN ...
+```
+
 Multi-Statement Lines:
 ----------------------
   Rc/Basic allows you to put multiple command on the same line.  Each command
@@ -604,18 +611,27 @@ GOTO 20
 are not cleared like it is when using RUN to start a program.
 
 -------------------------------------------------------------------------------
-IF expr [THEN] statement
+IF expr THEN statement
+IF expr THEN linenumber
 
-  The IF command allows for descisions within a program.  In Rc/Basic the 
-THEN is optional.  If when expr is evaluated and results in a nonzero
+  The IF command allows for descisions within a program. If when expr is evaluated and results in a nonzero
 value the statements following THEN will be executed.  If the results of the
 expression are zero then execution will follow through to the line following
 the line containing the IF statement.
 
+In the original Rc/Basic the THEN is optional. By default, now, it is not optional (you can revert this; see top of this file).
+However, you can now skip a GOTO, for example:
+```
+10 N=10
+20 PRINT N
+30 N=N-1
+40 IF N<>0 THEN 20
+```
+
 Example:
 ```
 10 A=5
-20 IF A<10 PRINT "A":PRINT"B"
+20 IF A<10 THEN PRINT "A":PRINT"B"
 30 PRINT "C"
 
 RUN
