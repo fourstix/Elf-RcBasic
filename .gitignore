@@ -1,7 +1,5 @@
 build.num
-bios.inc
 build.inc
-kernel.inc
 date.inc
 newexpr.asm
 temp.asm
