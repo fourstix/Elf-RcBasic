@@ -6,7 +6,7 @@
 ; *** without express written permission from the author.         ***
 ; *******************************************************************
 
-#include ../opcodes.inc	
+#include ../include/opcodes.inc	
 
 ; #define ELFOS
 ;#define PICOROM
@@ -108,7 +108,7 @@ exitaddr:  equ     o_wrmboot
 #define    INMSG   f_inmsg
 #endif
 
-#include    ../bios.inc
+#include    ../include/bios.inc
 
 TKN_USTR:  equ     0fch
 TKN_QSTR:  equ     0fdh
@@ -463,13 +463,14 @@ endstrfunc:
 strfuncct:	equ (endstrfunc-startstrfunc)/2
 
             
-restart:   ldi     0ch                 ; form feed
-           sep     scall               ; clear the screen
+restart:   sep     scall               ; clear the screen
 #ifdef ELFOS
-           dw      o_type
+           dw      o_inmsg
 #else
-           dw      f_type
+           dw      f_inmsg
 #endif
+           db      27,'[2J',0
+
            sep     scall               ; display welcome message
 #ifdef ELFOS
            dw      o_inmsg
